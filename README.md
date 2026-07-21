@@ -61,6 +61,22 @@ The script maps LIAR labels into binary risk labels:
 - High risk: `false`, `barely-true`, `pants-fire`
 - Lower risk: `half-true`, `mostly-true`, `true`
 
+## Transformer Experiment
+
+The baseline model uses TF-IDF and logistic regression. A transformer-based experiment is also included:
+
+```powershell
+python run_transformer_demo.py
+```
+
+By default, it fine-tunes `prajjwal1/bert-tiny` for a CPU-friendly demonstration. To try a larger DistilBERT model:
+
+```powershell
+python run_transformer_demo.py --model distilbert-base-uncased --max-train 4000 --epochs 1
+```
+
+Transformer outputs are saved under `transformer_outputs/`.
+
 ## Optional Single Post Test
 
 ```powershell
