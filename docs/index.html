@@ -43,10 +43,10 @@
         <p>
           This project frames misinformation detection as user-facing risk assistance rather than final
           truth judgment. We evaluate on LIAR, a public benchmark of 12.8K political claims labelled by
-          fact-checkers, and map six truthfulness labels into a binary risk task. A TF-IDF logistic
-          regression baseline achieves 0.743 accuracy, 0.712 F1, and 0.831 ROC-AUC on the official test
-          set. A compact BERT-style transformer provides a deep learning comparison under CPU-limited
-          settings.
+          fact-checkers, and map six truthfulness labels into a binary risk task. Under a fair text-only
+          protocol, BERT-base reaches 0.623 F1 and 0.697 ROC-AUC, slightly ahead of a text-only TF-IDF
+          logistic regression baseline. A metadata-enhanced TF-IDF model reaches 0.719 F1 and 0.830
+          ROC-AUC when speaker-history information is allowed.
         </p>
       </section>
 
@@ -66,7 +66,7 @@
           <div class="stage">
             <span>3</span>
             <h3>Models</h3>
-            <p>Interpretable logistic regression baseline and compact BERT-style transformer.</p>
+            <p>Text-only TF-IDF, text-only BERT-base, and a separate metadata-enhanced model.</p>
           </div>
           <div class="stage">
             <span>4</span>
@@ -80,16 +80,16 @@
         <h2>Results</h2>
         <div class="metrics">
           <div>
-            <strong>0.743</strong>
-            <span>Baseline accuracy</span>
+            <strong>0.697</strong>
+            <span>BERT-base ROC-AUC</span>
           </div>
           <div>
-            <strong>0.712</strong>
-            <span>Baseline F1</span>
+            <strong>0.623</strong>
+            <span>BERT-base F1</span>
           </div>
           <div>
-            <strong>0.831</strong>
-            <span>Baseline ROC-AUC</span>
+            <strong>0.830</strong>
+            <span>Metadata AUC</span>
           </div>
           <div>
             <strong>1,283</strong>
@@ -99,11 +99,11 @@
         <div class="figure-grid">
           <figure>
             <img src="assets/model_comparison.png" alt="Bar chart comparing baseline and transformer metrics" />
-            <figcaption>TF-IDF logistic regression outperforms the compact transformer in this CPU-limited experiment.</figcaption>
+            <figcaption>BERT-base slightly outperforms TF-IDF in the fair text-only comparison; metadata remains strongest overall.</figcaption>
           </figure>
           <figure>
             <img src="assets/roc_curves.png" alt="ROC curves for baseline and transformer models" />
-            <figcaption>The baseline separates higher-risk and lower-risk claims more reliably.</figcaption>
+            <figcaption>The ROC curves separate fair text-only comparison from the metadata-enhanced model.</figcaption>
           </figure>
         </div>
       </section>
@@ -116,21 +116,21 @@
             <figcaption>Original LIAR truthfulness labels are reasonably distributed across the test set.</figcaption>
           </figure>
           <figure>
-            <img src="assets/risk_distribution.png" alt="Predicted low, medium, and high risk distribution" />
-            <figcaption>The assistant creates a risk priority queue instead of binary content blocking.</figcaption>
+            <img src="assets/risk_distribution.png" alt="Predicted lower-risk and higher-risk distribution" />
+            <figcaption>The selected BERT-base threshold favors high recall for higher-risk claims.</figcaption>
           </figure>
           <figure>
             <img src="assets/baseline_confusion_matrix.png" alt="Baseline confusion matrix" />
-            <figcaption>The baseline identifies 407 higher-risk claims while missing 149.</figcaption>
+            <figcaption>The text-only TF-IDF model identifies 507 higher-risk claims while missing 49.</figcaption>
           </figure>
           <figure>
             <img src="assets/transformer_confusion_matrix.png" alt="Transformer confusion matrix" />
-            <figcaption>The compact transformer produces more false negatives under limited training.</figcaption>
+            <figcaption>BERT-base identifies 527 higher-risk claims while missing 29.</figcaption>
           </figure>
         </div>
         <figure class="wide-figure">
           <img src="assets/score_distribution.png" alt="Risk score distributions for both models" />
-          <figcaption>Risk-score distributions reveal a stronger separation pattern for the sparse baseline.</figcaption>
+          <figcaption>Risk-score distributions show BERT-base ahead of text-only TF-IDF, with metadata providing the strongest separation.</figcaption>
         </figure>
       </section>
 

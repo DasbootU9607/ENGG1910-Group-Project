@@ -18,8 +18,9 @@ FIGURE_DIR = PAPER_DIR / "figures"
 
 METRICS_TABLE = [
     ["Model", "Acc.", "Prec.", "Rec.", "F1", "AUC"],
-    ["TF-IDF + LR", "0.743", "0.692", "0.732", "0.712", "0.831"],
-    ["BERT-tiny", "0.609", "0.574", "0.378", "0.456", "0.631"],
+    ["TF-IDF text-only", "0.509", "0.466", "0.912", "0.617", "0.658"],
+    ["BERT-base text-only", "0.504", "0.464", "0.948", "0.623", "0.697"],
+    ["TF-IDF + metadata", "0.704", "0.610", "0.876", "0.719", "0.830"],
 ]
 
 
@@ -29,12 +30,12 @@ FIGURES = {
     ],
     "## 5. Results": [
         ("model_comparison.png", "Figure 2: Model comparison across five classification metrics."),
-        ("roc_curves.png", "Figure 3: ROC curves for the baseline and compact transformer."),
+        ("roc_curves.png", "Figure 3: ROC curves for the fair text-only models and metadata-enhanced model."),
     ],
     "## 6. Analysis": [
-        ("risk_distribution.png", "Figure 4: Predicted risk-level distribution from the baseline assistant."),
-        ("baseline_confusion_matrix.png", "Figure 5: Confusion matrix for TF-IDF logistic regression."),
-        ("transformer_confusion_matrix.png", "Figure 6: Confusion matrix for the compact transformer."),
+        ("risk_distribution.png", "Figure 4: Predicted binary risk distribution from BERT-base."),
+        ("baseline_confusion_matrix.png", "Figure 5: Confusion matrix for TF-IDF text-only logistic regression."),
+        ("transformer_confusion_matrix.png", "Figure 6: Confusion matrix for BERT-base text-only fine-tuning."),
         ("score_distribution.png", "Figure 7: Distribution of model risk scores."),
     ],
 }
@@ -133,7 +134,7 @@ def add_metrics_table(story: list, style_map: dict[str, ParagraphStyle]) -> None
         )
     )
     story.append(table)
-    story.append(Paragraph("Table 1: Test-set comparison between the sparse baseline and compact transformer.", style_map["caption"]))
+    story.append(Paragraph("Table 1: Test-set comparison under the fair LIAR protocol.", style_map["caption"]))
 
 
 def build_pdf() -> None:

@@ -84,6 +84,7 @@ class RiskAssistant:
     vectorizer: TfidfVectorizer
     classifier: LogisticRegression
     numeric_columns: list[str]
+    use_metadata: bool = True
 
     @classmethod
     def train(cls, df: pd.DataFrame) -> tuple["RiskAssistant", dict[str, float], pd.DataFrame]:
@@ -105,7 +106,7 @@ class RiskAssistant:
 
     @classmethod
     def train_with_split(
-        cls, train_df: pd.DataFrame, test_df: pd.DataFrame
+        cls, train_df: pd.DataFrame, test_df: pd.DataFrame, include_metadata: bool = True
     ) -> tuple["RiskAssistant", dict[str, float], pd.DataFrame]:
         train_df = train_df.copy()
         test_df = test_df.copy()
@@ -122,10 +123,16 @@ class RiskAssistant:
         x_train_text = vectorizer.fit_transform(train_df["text"])
         x_test_text = vectorizer.transform(test_df["text"])
 
-        numeric_train = build_numeric_features(train_df)
-        numeric_test = build_numeric_features(test_df)
-        x_train = sparse.hstack([x_train_text, sparse.csr_matrix(numeric_train.values)])
-        x_test = sparse.hstack([x_test_text, sparse.csr_matrix(numeric_test.values)])
+        numeric_columns: list[str] = []
+        if include_metadata:
+            numeric_train = build_numeric_features(train_df)
+            numeric_test = build_numeric_features(test_df)
+            numeric_columns = numeric_train.columns.tolist()
+            x_train = sparse.hstack([x_train_text, sparse.csr_matrix(numeric_train.values)])
+            x_test = sparse.hstack([x_test_text, sparse.csr_matrix(numeric_test.values)])
+        else:
+            x_train = x_train_text
+            x_test = x_test_text
 
         classifier = LogisticRegression(max_iter=1000, class_weight="balanced", random_state=42)
         classifier.fit(x_train, train_df["label"])
@@ -145,9 +152,10 @@ class RiskAssistant:
             "true_positive": int(tp),
             "test_size": int(len(test_df)),
             "train_size": int(len(train_df)),
+            "feature_set": "text_plus_metadata" if include_metadata else "text_only",
         }
 
-        assistant = cls(vectorizer, classifier, numeric_train.columns.tolist())
+        assistant = cls(vectorizer, classifier, numeric_columns, include_metadata)
         test_results = test_df.copy()
         test_results["risk_score"] = prob
         test_results["prediction"] = pred
@@ -155,8 +163,11 @@ class RiskAssistant:
 
     def predict_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
         text_features = self.vectorizer.transform(df["text"].fillna(""))
-        numeric_features = build_numeric_features(df)[self.numeric_columns]
-        x = sparse.hstack([text_features, sparse.csr_matrix(numeric_features.values)])
+        if self.use_metadata:
+            numeric_features = build_numeric_features(df)[self.numeric_columns]
+            x = sparse.hstack([text_features, sparse.csr_matrix(numeric_features.values)])
+        else:
+            x = text_features
         scores = self.classifier.predict_proba(x)[:, 1]
 
         out = df.copy()

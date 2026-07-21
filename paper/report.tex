@@ -13,7 +13,7 @@
 \maketitle
 
 \begin{abstract}
-We present a misinformation risk assistant for social media users. The system does not make a final true-or-false judgment; instead, it estimates whether a short claim deserves further verification and returns an interpretable risk level. We evaluate the idea on LIAR, a public benchmark of 12.8K political claims labelled by professional fact-checkers. The six LIAR labels are mapped into a binary risk task. Our strongest model combines TF-IDF text features, lightweight metadata features, and logistic regression, reaching 0.743 accuracy, 0.712 F1, and 0.831 ROC-AUC on the official test set. A compact BERT-style transformer fine-tuned under CPU-limited settings reaches 0.609 accuracy and 0.631 ROC-AUC.
+We present a misinformation risk assistant for social media users. The system does not make a final true-or-false judgment; instead, it estimates whether a short claim deserves further verification and returns an interpretable risk level. We evaluate the idea on LIAR, a public benchmark of 12.8K political claims labelled by professional fact-checkers. The six LIAR labels are mapped into a binary risk task. Under a fair text-only protocol, BERT-base reaches 0.623 F1 and 0.697 ROC-AUC, slightly ahead of a text-only TF-IDF logistic regression baseline at 0.617 F1 and 0.658 ROC-AUC. A metadata-enhanced TF-IDF model reaches 0.719 F1 and 0.830 ROC-AUC.
 \end{abstract}
 
 \section{Introduction}
@@ -29,10 +29,10 @@ We use the LIAR dataset, which contains short political statements collected fro
 \end{figure}
 
 \section{System Architecture}
-The application has four stages: input collection, feature extraction, supervised risk scoring, and explanation. The baseline uses TF-IDF unigrams and bigrams plus engineered metadata, while the transformer path tokenizes the claim and fine-tunes a compact BERT classifier.
+The application has four stages: input collection, feature extraction, supervised risk scoring, and explanation. The fair text-only models use the same claim text, subject, and context field. A separate metadata-enhanced model adds speaker-history features when they are available.
 
 \section{Models}
-The first model is logistic regression over sparse TF-IDF vectors and metadata features. The second model is \texttt{prajjwal1/bert-tiny}, a compact BERT-style transformer fine-tuned for binary classification.
+The first fair model is logistic regression over sparse TF-IDF text vectors. The second fair model is \texttt{bert-base-uncased}, fine-tuned for binary classification on the same text-only input. We also report a metadata-enhanced TF-IDF variant separately.
 
 \section{Results}
 \begin{table}[t]
@@ -41,11 +41,12 @@ The first model is logistic regression over sparse TF-IDF vectors and metadata f
 \toprule
 Model & Acc. & Prec. & Rec. & F1 & AUC \\
 \midrule
-TF-IDF + LR & 0.743 & 0.692 & 0.732 & 0.712 & 0.831 \\
-BERT-tiny & 0.609 & 0.574 & 0.378 & 0.456 & 0.631 \\
+TF-IDF text-only & 0.509 & 0.466 & 0.912 & 0.617 & 0.658 \\
+BERT-base text-only & 0.504 & 0.464 & 0.948 & 0.623 & 0.697 \\
+TF-IDF + metadata & 0.704 & 0.610 & 0.876 & 0.719 & 0.830 \\
 \bottomrule
 \end{tabular}
-\caption{Test-set comparison between the sparse baseline and compact transformer.}
+\caption{Test-set comparison under the fair LIAR protocol.}
 \end{table}
 
 \begin{figure}[t]
@@ -57,35 +58,35 @@ BERT-tiny & 0.609 & 0.574 & 0.378 & 0.456 & 0.631 \\
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/roc_curves.png}
-\caption{ROC curves for the baseline and compact transformer.}
+\caption{ROC curves for the fair text-only models and the metadata-enhanced model.}
 \end{figure}
 
 \section{Analysis}
-The TF-IDF logistic regression model performs best, with 0.743 accuracy, 0.712 F1, and 0.831 ROC-AUC. The compact transformer is weaker under our limited compute setting, indicating that model complexity alone is not sufficient.
+Under the fair text-only protocol, BERT-base slightly outperforms TF-IDF logistic regression by F1 and ROC-AUC. The metadata-enhanced TF-IDF model performs best overall because it uses additional speaker-history information, so it should not be treated as a direct architecture-only comparison.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/risk_distribution.png}
-\caption{Predicted risk-level distribution from the baseline assistant.}
+\caption{Predicted binary risk distribution from the selected BERT-base text-only model.}
 \end{figure}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/baseline_confusion_matrix.png}
-\caption{Confusion matrix for TF-IDF logistic regression.}
+\caption{Confusion matrix for TF-IDF text-only logistic regression.}
 \end{figure}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/transformer_confusion_matrix.png}
-\caption{Confusion matrix for the compact transformer.}
+\caption{Confusion matrix for BERT-base text-only fine-tuning.}
 \end{figure}
 
 \section{Ethical Considerations}
 The system should not be used as an automatic censorship tool. False positives may unfairly reduce trust in legitimate speech, while false negatives may give users false confidence. A deployed system should minimize private account and repost data collection.
 
 \section{Conclusion}
-We built a reproducible misinformation risk assistant using LIAR. The project demonstrates that effective AI applications require careful task framing, data preparation, explanation, and ethical boundaries, not only powerful models.
+We built a reproducible misinformation risk assistant using LIAR. Under a fair text-only comparison, BERT-base slightly outperforms TF-IDF logistic regression, while metadata-enhanced TF-IDF remains strongest overall. The project demonstrates that effective AI applications require careful task framing, data preparation, feature access, explanation, and ethical boundaries.
 
 \section*{References}
 Wang, W. Y. 2017. Liar, Liar Pants on Fire: A New Benchmark Dataset for Fake News Detection. ACL.
