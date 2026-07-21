@@ -3,7 +3,10 @@ __pycache__/
 .hf_cache/
 docx_render/
 pdf_render/
+pdf_render_transformer/
 outputs/
 run_check_outputs/
+transformer_outputs/
+transformer_smoke_outputs/
 data/liar_dataset.zip
 ~$*
