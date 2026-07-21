@@ -10,6 +10,7 @@ from docx.shared import Inches, Pt, RGBColor
 PROJECT_DIR = Path(__file__).resolve().parent
 REPORT_MD = PROJECT_DIR / "report_draft.md"
 REPORT_DOCX = PROJECT_DIR / "report_draft.docx"
+FALLBACK_REPORT_DOCX = PROJECT_DIR / "report_draft_transformer.docx"
 CHART_PATH = PROJECT_DIR / "outputs" / "risk_distribution.png"
 
 
@@ -86,8 +87,12 @@ def build_docx() -> None:
             add_paragraph(document, stripped.replace("`", ""))
 
     REPORT_DOCX.parent.mkdir(parents=True, exist_ok=True)
-    document.save(REPORT_DOCX)
-    print(REPORT_DOCX)
+    try:
+        document.save(REPORT_DOCX)
+        print(REPORT_DOCX)
+    except PermissionError:
+        document.save(FALLBACK_REPORT_DOCX)
+        print(FALLBACK_REPORT_DOCX)
 
 
 if __name__ == "__main__":
