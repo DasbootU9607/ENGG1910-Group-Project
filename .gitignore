@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.hf_cache/
+docx_render/
+pdf_render/
+outputs/
+run_check_outputs/
+data/liar_dataset.zip
+~$*
