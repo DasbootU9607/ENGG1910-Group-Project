@@ -1,7 +1,6 @@
 __pycache__/
 *.pyc
 .hf_cache/
-figures/
 docx_render/
 pdf_render/
 pdf_render_transformer/
@@ -9,7 +8,9 @@ outputs/
 run_check_outputs/
 transformer_outputs/
 transformer_smoke_outputs/
+paper/render/
 data/liar_dataset.zip
+/figures/
 PROJECT_PLAN.md
 build_report_docx.py
 build_report_pdf.py

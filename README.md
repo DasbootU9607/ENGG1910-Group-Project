@@ -2,10 +2,21 @@
 
 This repository contains the core experimental code for an AI misinformation risk assistant. The system estimates whether a short social-media-style claim deserves further checking. It outputs a risk score and warning level; it does not claim to be a final truth judge.
 
+Project page: https://dasbootu9607.github.io/ENGG1910-Group-Project/
+
+Paper: [`paper/report.pdf`](paper/report.pdf)
+
 ## Repository Structure
 
 ```text
 .
+├── docs/
+│   └── index.html
+├── paper/
+│   ├── figures/
+│   ├── report.md
+│   ├── report.pdf
+│   └── report.tex
 ├── data/
 │   └── demo_posts.csv
 ├── src/
@@ -16,7 +27,7 @@ This repository contains the core experimental code for an AI misinformation ris
 └── README.md
 ```
 
-Generated outputs, downloaded datasets, model caches, reports, and rendered figures are intentionally excluded from version control.
+Generated outputs, downloaded datasets, model caches, and render scratch directories are intentionally excluded from version control.
 
 ## Methods
 
