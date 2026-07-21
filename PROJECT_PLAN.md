@@ -28,6 +28,7 @@ The current prototype is an offline demo that can run without paid APIs or large
 - TF-IDF text features for NLP signals.
 - Numeric risk features, such as source credibility, repost speed, account age, punctuation intensity, emotional wording, and unsupported claim markers.
 - Logistic regression to estimate the probability that a post belongs to the higher-risk class.
+- An optional transformer-based NLP experiment using a compact BERT-style model for deep learning comparison.
 - Rule-based explanations to highlight suspicious elements.
 
 ## Inputs
@@ -67,6 +68,7 @@ Commercial source credibility APIs are optional, not required. They may raise co
 ## Work Plan
 
 1. Build offline prototype and verify that it runs.
-2. Ask group members to run the demo and collect generated output files.
-3. Use the output metrics, risk examples, and chart in the written report.
-4. If time allows, replace synthetic data with a public dataset and rerun the same pipeline.
+2. Run the LIAR dataset baseline and collect generated output files.
+3. Run the transformer experiment for a deep learning comparison.
+4. Use the output metrics, risk examples, and chart in the written report.
+5. If time allows, replace LIAR with a dataset that contains real social media repost networks.
