@@ -1,54 +1,50 @@
 # AI-Powered Misinformation Risk Assistant
 
-This folder contains a runnable ENGG1910 course project prototype.
+This repository contains the core experimental code for an AI misinformation risk assistant. The system estimates whether a short social-media-style claim deserves further checking. It outputs a risk score and warning level; it does not claim to be a final truth judge.
 
-The system estimates whether a social media post has high misinformation risk. It does not directly decide whether a post is true or false. It gives a risk score and short explanations, such as emotional wording, unsupported claims, weak source information, or suspicious repost patterns.
+## Repository Structure
 
-## How to Run
-
-From this folder:
-
-```powershell
-python run_demo.py
+```text
+.
+├── data/
+│   └── demo_posts.csv
+├── src/
+│   └── misinformation_risk_assistant.py
+├── run_demo.py
+├── run_transformer_demo.py
+├── requirements.txt
+└── README.md
 ```
 
-Or from the course root:
+Generated outputs, downloaded datasets, model caches, reports, and rendered figures are intentionally excluded from version control.
 
-```powershell
-python "group project\misinformation_risk_assistant\run_demo.py"
-```
+## Methods
 
-The script will create:
+The repository includes two reproducible model paths:
 
-- `outputs/evaluation_metrics.json`
-- `outputs/predictions.csv`
-- `outputs/risk_distribution.png`
+- `run_demo.py`: TF-IDF text features plus logistic regression, with additional metadata features when available.
+- `run_transformer_demo.py`: a compact BERT-style transformer fine-tuning experiment for the same binary risk task.
 
-## Dependencies
+The LIAR labels are mapped into a binary risk setting:
 
-The current environment already has the required packages:
+- Higher risk: `false`, `barely-true`, `pants-fire`
+- Lower risk: `half-true`, `mostly-true`, `true`
 
-- pandas
-- numpy
-- scikit-learn
-- matplotlib
-- datasets, only if loading Hugging Face datasets
-
-If another computer is missing packages:
+## Installation
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-## Notes for the Report
+## Baseline Experiment
 
-The demo dataset is synthetic and is meant to prove the system pipeline. In the report, describe it as a prototype experiment rather than a real-world performance claim.
+Run the synthetic demo data:
 
-For a stronger final version, replace `data/demo_posts.csv` with a public misinformation dataset such as LIAR, FakeNewsNet, or CoAID, then keep the same input columns.
+```powershell
+python run_demo.py
+```
 
-## LIAR Dataset Experiment
-
-The project also supports the LIAR political fact-checking dataset. This repository version uses the original LIAR TSV files downloaded from the URL referenced by the Hugging Face dataset script.
+Run the LIAR experiment:
 
 ```powershell
 python run_demo.py --dataset liar
@@ -56,29 +52,34 @@ python run_demo.py --dataset liar
 
 If `data/liar_dataset.zip` is missing, the script downloads it automatically from the original LIAR dataset URL.
 
-The script maps LIAR labels into binary risk labels:
+Expected output files are written to `outputs/`:
 
-- High risk: `false`, `barely-true`, `pants-fire`
-- Lower risk: `half-true`, `mostly-true`, `true`
+```text
+evaluation_metrics.json
+predictions.csv
+risk_distribution.png
+```
 
 ## Transformer Experiment
 
-The baseline model uses TF-IDF and logistic regression. A transformer-based experiment is also included:
+Run the CPU-friendly transformer experiment:
 
 ```powershell
-python run_transformer_demo.py
+python run_transformer_demo.py --epochs 5
 ```
 
-By default, it fine-tunes `prajjwal1/bert-tiny` for a CPU-friendly demonstration. To try a larger DistilBERT model:
+The default checkpoint is `prajjwal1/bert-tiny`. A larger model can be tested with:
 
 ```powershell
 python run_transformer_demo.py --model distilbert-base-uncased --max-train 4000 --epochs 1
 ```
 
-Transformer outputs are saved under `transformer_outputs/`.
+Transformer outputs are written to `transformer_outputs/`.
 
-## Optional Single Post Test
+## Data
 
-```powershell
-python run_demo.py --post "SHOCKING secret cure that doctors do not want you to know!!!" --source "unknown-blog.info" --account-age 3 --followers 12 --following 900 --reposts 420 --distinct-reposters 35
-```
+The core public experiment uses the LIAR dataset:
+
+W. Y. Wang, "Liar, Liar Pants on Fire: A New Benchmark Dataset for Fake News Detection," ACL 2017.
+
+The repository does not commit the LIAR zip file or Hugging Face cache. This keeps the repository lightweight and reproducible.
