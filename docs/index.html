@@ -5,149 +5,165 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Project page for AI-Powered Misinformation Risk Assistance for Social Media Users."
+      content="ENGG1910 project page for an AI-powered misinformation risk assistant."
     />
-    <title>AI-Powered Misinformation Risk Assistance</title>
+    <title>AI-Powered Misinformation Risk Assistant</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="site-header">
-      <nav class="nav">
-        <a href="#abstract">Abstract</a>
-        <a href="#method">Method</a>
-        <a href="#results">Results</a>
-        <a href="#analysis">Analysis</a>
-        <a href="#ethics">Ethics</a>
+      <nav class="nav" aria-label="Project navigation">
+        <a class="brand" href="#">Misinformation Risk Assistant</a>
+        <div class="nav-links">
+          <a href="#method">Method</a>
+          <a href="#results">Results</a>
+          <a href="#figures">Figures</a>
+          <a href="#ethics">Ethics</a>
+        </div>
       </nav>
     </header>
 
     <main>
       <section class="hero">
-        <div class="hero-inner">
-          <p class="venue">ENGG1910 Course Project</p>
-          <h1>AI-Powered Misinformation Risk Assistance for Social Media Users</h1>
-          <p class="subtitle">
-            A reproducible NLP system that ranks political claims by misinformation risk and explains why
-            a claim may deserve verification.
-          </p>
-          <div class="actions" aria-label="Project links">
-            <a href="https://github.com/DasbootU9607/ENGG1910-Group-Project" class="button primary">Code</a>
-            <a href="report.pdf" class="button">Paper PDF</a>
-            <a href="#results" class="button">Results</a>
-          </div>
+        <p class="eyebrow">ENGG1910 Course Project</p>
+        <h1>AI-Powered Misinformation Risk Assistant</h1>
+        <p class="lede">
+          A reproducible NLP prototype that maps political claims into Low, Medium, and High
+          misinformation risk, then compares a TF-IDF logistic regression baseline with a
+          BERT-base text-only model.
+        </p>
+        <div class="actions" aria-label="Project links">
+          <a class="button primary" href="report.pdf">Paper PDF</a>
+          <a class="button" href="https://github.com/DasbootU9607/ENGG1910-Group-Project">GitHub</a>
         </div>
       </section>
 
-      <section id="abstract" class="section">
-        <h2>Abstract</h2>
-        <p>
-          This project frames misinformation detection as user-facing risk assistance rather than final
-          truth judgment. We evaluate on LIAR, a public benchmark of 12.8K political claims labelled by
-          fact-checkers, and map six truthfulness labels into a three-level risk task. Under a fair
-          text-only protocol, BERT-base reaches 0.491 macro-F1 and 0.670 macro ROC-AUC, outperforming
-          a text-only TF-IDF logistic regression baseline.
-        </p>
+      <section class="metrics" aria-label="Key results">
+        <div>
+          <span>Macro-F1</span>
+          <strong>0.491</strong>
+          <p>BERT-base text-only</p>
+        </div>
+        <div>
+          <span>Macro AUC</span>
+          <strong>0.670</strong>
+          <p>BERT-base text-only</p>
+        </div>
+        <div>
+          <span>Baseline Macro-F1</span>
+          <strong>0.421</strong>
+          <p>TF-IDF text-only</p>
+        </div>
+        <div>
+          <span>Test Claims</span>
+          <strong>1,283</strong>
+          <p>Official LIAR test split</p>
+        </div>
       </section>
 
       <section id="method" class="section">
-        <h2>Method</h2>
-        <div class="pipeline" aria-label="System pipeline">
-          <div class="stage">
-            <span>1</span>
-            <h3>Input</h3>
-            <p>Claim text with subject and context fields from the official LIAR splits.</p>
-          </div>
-          <div class="stage">
-            <span>2</span>
-            <h3>Features</h3>
-            <p>TF-IDF n-grams for the baseline and BERT tokenization for the transformer model.</p>
-          </div>
-          <div class="stage">
-            <span>3</span>
-            <h3>Models</h3>
-            <p>Text-only TF-IDF logistic regression and text-only BERT-base fine-tuning.</p>
-          </div>
-          <div class="stage">
-            <span>4</span>
-            <h3>Output</h3>
-            <p>Risk score, Low/Medium/High level, and human-readable explanation.</p>
-          </div>
+        <div class="section-heading">
+          <p class="eyebrow">Method</p>
+          <h2>Three-class risk assistance, not truth judgment</h2>
+        </div>
+        <div class="method-grid">
+          <article>
+            <span>01</span>
+            <h3>Data Mapping</h3>
+            <p>True and mostly-true claims are Low risk; half-true and barely-true claims are Medium risk; false and pants-fire claims are High risk.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Text-Only Comparison</h3>
+            <p>Both reported models use the same claim text, subject, and context fields from the official LIAR train, validation, and test splits.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Prediction</h3>
+            <p>The final experimental label is selected by multiclass argmax over Low, Medium, and High probabilities.</p>
+          </article>
         </div>
       </section>
 
       <section id="results" class="section">
-        <h2>Results</h2>
-        <div class="metrics">
-          <div>
-            <strong>0.670</strong>
-            <span>BERT-base Macro AUC</span>
-          </div>
-          <div>
-            <strong>0.491</strong>
-            <span>BERT-base Macro-F1</span>
-          </div>
-          <div>
-            <strong>0.421</strong>
-            <span>TF-IDF Macro-F1</span>
-          </div>
-          <div>
-            <strong>1,283</strong>
-            <span>Test claims</span>
-          </div>
+        <div class="section-heading">
+          <p class="eyebrow">Results</p>
+          <h2>Fair text-only model comparison</h2>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Accuracy</th>
+                <th>Macro Precision</th>
+                <th>Macro Recall</th>
+                <th>Macro-F1</th>
+                <th>Weighted-F1</th>
+                <th>Macro AUC</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>TF-IDF text-only</td>
+                <td>0.422</td>
+                <td>0.424</td>
+                <td>0.427</td>
+                <td>0.421</td>
+                <td>0.421</td>
+                <td>0.611</td>
+              </tr>
+              <tr>
+                <td>BERT-base text-only</td>
+                <td>0.496</td>
+                <td>0.495</td>
+                <td>0.489</td>
+                <td>0.491</td>
+                <td>0.495</td>
+                <td>0.670</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="figures" class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Figures</p>
+          <h2>Evaluation visuals</h2>
         </div>
         <div class="figure-grid">
           <figure>
-            <img src="assets/model_comparison.png" alt="Bar chart comparing baseline and transformer metrics" />
-            <figcaption>BERT-base outperforms TF-IDF in the fair text-only three-class comparison.</figcaption>
+            <img src="assets/model_comparison.png" alt="Bar chart comparing TF-IDF and BERT-base metrics" />
+            <figcaption>BERT-base improves over the TF-IDF baseline across the main three-class metrics.</figcaption>
           </figure>
           <figure>
-            <img src="assets/roc_curves.png" alt="ROC curves for baseline and transformer models" />
-            <figcaption>The ROC curves compare only the text-only TF-IDF baseline and BERT-base model.</figcaption>
+            <img src="assets/roc_curves.png" alt="One-vs-rest ROC curves for TF-IDF and BERT-base" />
+            <figcaption>One-vs-rest ROC curves compare only the two reported text-only models.</figcaption>
+          </figure>
+          <figure>
+            <img src="assets/transformer_confusion_matrix.png" alt="BERT-base three-class confusion matrix" />
+            <figcaption>Medium risk remains the hardest class, which matches the ambiguity of partly true claims.</figcaption>
           </figure>
         </div>
       </section>
 
-      <section id="analysis" class="section">
-        <h2>Analysis</h2>
-        <div class="figure-grid">
-          <figure>
-            <img src="assets/label_distribution.png" alt="LIAR test-set label distribution" />
-            <figcaption>Original LIAR truthfulness labels are reasonably distributed across the test set.</figcaption>
-          </figure>
-          <figure>
-            <img src="assets/risk_distribution.png" alt="Predicted Low, Medium, and High risk distribution" />
-            <figcaption>The BERT-base model outputs a three-level Low, Medium, and High risk distribution.</figcaption>
-          </figure>
-          <figure>
-            <img src="assets/baseline_confusion_matrix.png" alt="Baseline confusion matrix" />
-            <figcaption>The text-only TF-IDF confusion matrix shows Medium risk is the hardest class to separate.</figcaption>
-          </figure>
-          <figure>
-            <img src="assets/transformer_confusion_matrix.png" alt="Transformer confusion matrix" />
-            <figcaption>The BERT-base confusion matrix shows stronger overall three-class separation than TF-IDF.</figcaption>
-          </figure>
+      <section id="ethics" class="section split">
+        <div>
+          <p class="eyebrow">Ethics</p>
+          <h2>Designed as a verification prompt</h2>
         </div>
-        <figure class="wide-figure">
-          <img src="assets/score_distribution.png" alt="Risk score distributions for both models" />
-          <figcaption>Risk-score distributions compare the two reported text-only models.</figcaption>
-        </figure>
-      </section>
-
-      <section id="ethics" class="section">
-        <h2>Ethics and Limitations</h2>
         <p>
-          The assistant should support verification, not censorship. False positives may unfairly reduce
-          trust in legitimate claims, while false negatives may create over-confidence. A deployed system
-          would need privacy-preserving metadata handling, multilingual evaluation, stronger source
-          reliability signals, and real repost-network analysis.
+          The assistant should support user judgment rather than censor claims or replace professional
+          fact-checking. False positives can reduce trust in legitimate speech, while false negatives
+          can create over-confidence. Future work should test broader domains, multilingual claims,
+          source reliability signals, and real social-media repost patterns.
         </p>
       </section>
 
-      <section class="section references">
-        <h2>References</h2>
-        <p>Wang, W. Y. 2017. Liar, Liar Pants on Fire: A New Benchmark Dataset for Fake News Detection. ACL.</p>
-        <p>Devlin, J., Chang, M.-W., Lee, K., and Toutanova, K. 2019. BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding. NAACL.</p>
-      </section>
+      <footer class="footer">
+        <p>References: LIAR dataset, BERT, Hugging Face, and PolitiFact. Full citations are in the paper PDF.</p>
+      </footer>
     </main>
   </body>
 </html>
