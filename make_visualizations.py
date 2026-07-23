@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.metrics import auc, confusion_matrix, roc_curve
+from sklearn.preprocessing import label_binarize
 
 
 PROJECT_DIR = Path(__file__).resolve().parent
@@ -16,7 +17,6 @@ BASELINE_METRICS = PROJECT_DIR / "outputs" / "evaluation_metrics.json"
 TRANSFORMER_METRICS = PROJECT_DIR / "transformer_outputs" / "transformer_metrics.json"
 FAIR_OUTPUTS = PROJECT_DIR / "fair_outputs"
 TFIDF_TEXT_PREDICTIONS = FAIR_OUTPUTS / "tfidf_text_only_predictions.csv"
-TFIDF_METADATA_PREDICTIONS = FAIR_OUTPUTS / "tfidf_metadata_enhanced_predictions.csv"
 TRANSFORMER_TEXT_PREDICTIONS = FAIR_OUTPUTS / "transformer_text_only_predictions.csv"
 FAIR_METRICS = FAIR_OUTPUTS / "metrics.json"
 FIGURE_DIR = PROJECT_DIR / "paper" / "figures"
@@ -71,11 +71,11 @@ def plot_label_distribution(df: pd.DataFrame) -> None:
 
 
 def plot_risk_distribution(df: pd.DataFrame) -> None:
-    order = [0, 1]
+    order = [0, 1, 2]
     counts = df["prediction"].value_counts().reindex(order).fillna(0)
     fig, ax = plt.subplots(figsize=(6.4, 4.0))
-    bars = ax.bar(["Lower risk", "Higher risk"], counts.values, color=[COLORS["green"], COLORS["red"]])
-    ax.set_title("Predicted Binary Risk Distribution")
+    bars = ax.bar(["Low", "Medium", "High"], counts.values, color=[COLORS["green"], COLORS["amber"], COLORS["red"]])
+    ax.set_title("Predicted Three-Level Risk Distribution")
     ax.set_xlabel("Predicted class")
     ax.set_ylabel("Number of claims")
     style_axes(ax)
@@ -89,33 +89,44 @@ def plot_confusion_matrix(df: pd.DataFrame, score_column: str, name: str, title:
     if "prediction" in df.columns:
         y_pred = df["prediction"].astype(int).to_numpy()
     else:
-        y_pred = (df[score_column].to_numpy() >= 0.5).astype(int)
-    matrix = confusion_matrix(y_true, y_pred, labels=[0, 1])
+        probability_columns = ["prob_low", "prob_medium", "prob_high"]
+        if score_column.startswith("transformer"):
+            probability_columns = ["transformer_prob_low", "transformer_prob_medium", "transformer_prob_high"]
+        y_pred = np.argmax(df[probability_columns].to_numpy(), axis=1)
+    matrix = confusion_matrix(y_true, y_pred, labels=[0, 1, 2])
     fig, ax = plt.subplots(figsize=(4.4, 4.0))
     image = ax.imshow(matrix, cmap="Blues")
     ax.set_title(title)
-    ax.set_xticks([0, 1], labels=["Lower risk", "Higher risk"])
-    ax.set_yticks([0, 1], labels=["Lower risk", "Higher risk"])
+    ax.set_xticks([0, 1, 2], labels=["Low", "Medium", "High"])
+    ax.set_yticks([0, 1, 2], labels=["Low", "Medium", "High"])
     ax.set_xlabel("Predicted label")
     ax.set_ylabel("True label")
-    for i in range(2):
-        for j in range(2):
+    for i in range(3):
+        for j in range(3):
             ax.text(j, i, str(matrix[i, j]), ha="center", va="center", color=COLORS["ink"], fontsize=12, fontweight="bold")
     fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
     save(fig, name)
 
 
-def plot_roc_curves(tfidf_text: pd.DataFrame, transformer: pd.DataFrame, metadata: pd.DataFrame) -> None:
+def plot_roc_curves(tfidf_text: pd.DataFrame, transformer: pd.DataFrame) -> None:
     fig, ax = plt.subplots(figsize=(5.6, 4.4))
-    for df, score_column, label, color in [
-        (tfidf_text, "risk_score", "TF-IDF text-only", COLORS["blue"]),
-        (transformer, "transformer_risk_score", "BERT-base text-only", COLORS["purple"]),
-        (metadata, "risk_score", "TF-IDF + metadata", COLORS["green"]),
+    for df, probability_columns, label, color in [
+        (tfidf_text, ["prob_low", "prob_medium", "prob_high"], "TF-IDF text-only", COLORS["blue"]),
+        (transformer, ["transformer_prob_low", "transformer_prob_medium", "transformer_prob_high"], "BERT-base text-only", COLORS["purple"]),
     ]:
-        fpr, tpr, _ = roc_curve(df["label"].astype(int), df[score_column])
-        ax.plot(fpr, tpr, label=f"{label} (AUC={auc(fpr, tpr):.3f})", color=color, linewidth=2)
+        y_true = label_binarize(df["label"].astype(int), classes=[0, 1, 2])
+        probabilities = df[probability_columns].to_numpy()
+        mean_fpr = np.linspace(0, 1, 101)
+        tprs = []
+        aucs = []
+        for class_index in range(3):
+            fpr, tpr, _ = roc_curve(y_true[:, class_index], probabilities[:, class_index])
+            tprs.append(np.interp(mean_fpr, fpr, tpr))
+            aucs.append(auc(fpr, tpr))
+        mean_tpr = np.mean(tprs, axis=0)
+        ax.plot(mean_fpr, mean_tpr, label=f"{label} (macro AUC={np.mean(aucs):.3f})", color=color, linewidth=2)
     ax.plot([0, 1], [0, 1], linestyle="--", color=COLORS["muted"], linewidth=1)
-    ax.set_title("ROC Curves on LIAR Test Set")
+    ax.set_title("One-vs-Rest ROC Curves on LIAR Test Set")
     ax.set_xlabel("False positive rate")
     ax.set_ylabel("True positive rate")
     ax.legend(frameon=False, fontsize=8, loc="lower right")
@@ -124,21 +135,20 @@ def plot_roc_curves(tfidf_text: pd.DataFrame, transformer: pd.DataFrame, metadat
 
 
 def plot_model_comparison(metrics: dict[str, dict[str, float]]) -> None:
-    metric_names = ["accuracy", "precision", "recall", "f1", "roc_auc"]
+    metric_names = ["accuracy", "precision_macro", "recall_macro", "f1_macro", "roc_auc_ovr_macro"]
     x = np.arange(len(metric_names))
-    width = 0.25
+    width = 0.32
     models = [
         ("tfidf_text_only", "TF-IDF text-only", COLORS["blue"]),
         ("transformer_text_only", "BERT-base text-only", COLORS["purple"]),
-        ("tfidf_metadata_enhanced", "TF-IDF + metadata", COLORS["green"]),
     ]
 
     fig, ax = plt.subplots(figsize=(7.0, 4.2))
-    offsets = [-width, 0, width]
+    offsets = [-width / 2, width / 2]
     for offset, (key, label, color) in zip(offsets, models):
         values = [metrics[key][name] for name in metric_names]
         ax.bar(x + offset, values, width, label=label, color=color)
-    ax.set_xticks(x, labels=["Accuracy", "Precision", "Recall", "F1", "ROC-AUC"])
+    ax.set_xticks(x, labels=["Accuracy", "Macro Precision", "Macro Recall", "Macro F1", "Macro AUC"])
     ax.set_ylim(0, 1)
     ax.set_ylabel("Score")
     ax.set_title("Model Comparison")
@@ -147,11 +157,10 @@ def plot_model_comparison(metrics: dict[str, dict[str, float]]) -> None:
     save(fig, "model_comparison.png")
 
 
-def plot_score_density(tfidf_text: pd.DataFrame, transformer: pd.DataFrame, metadata: pd.DataFrame) -> None:
+def plot_score_density(tfidf_text: pd.DataFrame, transformer: pd.DataFrame) -> None:
     fig, ax = plt.subplots(figsize=(6.6, 4.0))
     ax.hist(tfidf_text["risk_score"], bins=24, alpha=0.58, label="TF-IDF text-only", color=COLORS["blue"], density=True)
     ax.hist(transformer["transformer_risk_score"], bins=24, alpha=0.50, label="BERT-base text-only", color=COLORS["purple"], density=True)
-    ax.hist(metadata["risk_score"], bins=24, alpha=0.42, label="TF-IDF + metadata", color=COLORS["green"], density=True)
     ax.set_title("Risk-Score Distribution")
     ax.set_xlabel("Risk score")
     ax.set_ylabel("Density")
@@ -162,7 +171,6 @@ def plot_score_density(tfidf_text: pd.DataFrame, transformer: pd.DataFrame, meta
 
 def main() -> None:
     tfidf_text = pd.read_csv(TFIDF_TEXT_PREDICTIONS)
-    metadata = pd.read_csv(TFIDF_METADATA_PREDICTIONS)
     transformer = pd.read_csv(TRANSFORMER_TEXT_PREDICTIONS)
     metrics = load_json(FAIR_METRICS)
 
@@ -170,9 +178,9 @@ def main() -> None:
     plot_risk_distribution(transformer)
     plot_confusion_matrix(tfidf_text, "risk_score", "baseline_confusion_matrix.png", "TF-IDF Text-Only Confusion Matrix")
     plot_confusion_matrix(transformer, "transformer_risk_score", "transformer_confusion_matrix.png", "BERT-Base Text-Only Confusion Matrix")
-    plot_roc_curves(tfidf_text, transformer, metadata)
+    plot_roc_curves(tfidf_text, transformer)
     plot_model_comparison(metrics)
-    plot_score_density(tfidf_text, transformer, metadata)
+    plot_score_density(tfidf_text, transformer)
     print(f"Saved figures to {FIGURE_DIR} and {DOCS_ASSET_DIR}")
 
 

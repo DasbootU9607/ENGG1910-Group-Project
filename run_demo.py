@@ -66,10 +66,10 @@ def main() -> None:
     print(
         "Metrics: "
         f"accuracy={metrics['accuracy']:.3f}, "
-        f"precision={metrics['precision']:.3f}, "
-        f"recall={metrics['recall']:.3f}, "
-        f"f1={metrics['f1']:.3f}, "
-        f"roc_auc={metrics['roc_auc']:.3f}"
+        f"macro_precision={metrics['precision_macro']:.3f}, "
+        f"macro_recall={metrics['recall_macro']:.3f}, "
+        f"macro_f1={metrics['f1_macro']:.3f}, "
+        f"macro_auc={metrics['roc_auc_ovr_macro']:.3f}"
     )
     print(f"Saved predictions: {args.output / 'predictions.csv'}")
     print(f"Saved metrics: {args.output / 'evaluation_metrics.json'}")

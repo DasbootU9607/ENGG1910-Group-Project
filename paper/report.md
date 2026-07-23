@@ -2,57 +2,66 @@
 
 ## Abstract
 
-We present a misinformation risk assistant for social media users. The system does not make a final true-or-false judgment; instead, it estimates whether a short claim deserves further verification and returns an interpretable risk level. We evaluate the idea on LIAR, a public benchmark of 12.8K political claims labelled by professional fact-checkers. The six LIAR labels are mapped into a binary risk task, where false, barely-true, and pants-fire claims are treated as higher risk. Under a fair text-only protocol, BERT-base reaches 0.623 F1 and 0.697 ROC-AUC, slightly ahead of a text-only TF-IDF logistic regression baseline at 0.617 F1 and 0.658 ROC-AUC. A metadata-enhanced TF-IDF model reaches 0.719 F1 and 0.830 ROC-AUC, showing the value of speaker-history information when it is available.
+This project designs an AI-powered assistant that helps social media users decide whether a short online claim deserves further checking before it is shared. The system is not designed as an automatic truth judge. Instead, it predicts a three-level misinformation risk label, converts the output into Low, Medium, or High warning language, and gives simple reasons for the warning. Our experiment uses the LIAR dataset, a public benchmark of 12.8K political claims labelled by professional fact-checkers. The original six labels are mapped into a three-level risk task: true and mostly-true are treated as Low risk, half-true and barely-true are treated as Medium risk, and false and pants-fire are treated as High risk. The baseline is a TF-IDF logistic regression model trained only on claim text, which obtains 0.421 macro-F1 and 0.611 one-vs-rest macro ROC-AUC. The main experimental model is BERT-base fine-tuned on the same text-only input, which improves performance to 0.491 macro-F1 and 0.670 macro ROC-AUC.
 
-## 1. Introduction
+## I. Introduction and Motivation
 
-Social media platforms allow misleading claims to spread before users can verify them. A direct automated truth detector is dangerous because many posts are incomplete, ambiguous, contextual, or developing. We therefore formulate the application as risk assistance rather than truth adjudication. Given a post and available context, the system estimates misinformation risk and explains warning signals so that users can decide whether to check official sources before sharing.
+Social media allows information to spread quickly, but it also allows misleading claims to reach many users before they have time to verify them. A user may see a claim in a repost, screenshot, short video caption, or political quote, and the decision to share is often made within seconds. This creates a practical need for an AI tool that can slow down risky sharing and encourage users to check reliable sources.
 
-Our contributions are threefold. First, we design a modular risk-assistant architecture that combines linguistic signals, metadata, supervised learning, and explanation. Second, we implement reproducible TF-IDF and BERT-base classifiers under a fair evaluation protocol. Third, we analyze performance, error patterns, and limitations on the LIAR benchmark.
+However, a direct "true or false" detector is not suitable for this problem. Online claims are often incomplete, emotional, or dependent on context. Some claims are still developing, and some may be partly true but misleading. Therefore, our project frames the task as risk assistance. The system warns the user that a claim may require verification, but it does not censor the claim or replace human judgment.
 
-## 2. Task and Data
+The goal is to build and evaluate a reproducible prototype. It receives a social-media-style claim, extracts text and context features, predicts a risk level, and returns an interpretable warning. This matches the course project requirement because it includes a real AI application scenario, data preparation, model design, evaluation, and reflection.
 
-We use the LIAR dataset, which contains short political statements collected from PolitiFact with six truthfulness labels. We map the original labels into a binary risk task. False, barely-true, and pants-fire are assigned to the higher-risk class, while half-true, mostly-true, and true are assigned to the lower-risk class. This mapping intentionally avoids claiming that all lower-risk statements are fully true; it only separates claims that are more likely to need urgent verification.
+## II. Main Problem
 
-The fair experiment uses the official LIAR training split for model fitting, the official validation split for threshold selection and transformer checkpoint selection, and the official test split for final reporting. This gives 10,269 training examples, 1,284 validation examples, and 1,283 test examples. Besides the statement text, LIAR includes subject, context, speaker identity, party affiliation, and speaker fact-checking history. We report text-only models separately from the metadata-enhanced model because the latter uses extra speaker-history information.
+The main problem is to estimate whether a short claim belongs to Low, Medium, or High misinformation risk. There are three difficulties. First, the input text is short, so the model has limited evidence. Second, social media posts may need extra information such as the source, author history, and repost pattern, but this information is not always available. Third, an incorrect warning has consequences: false positives may reduce trust in legitimate speech, while false negatives may give users false confidence.
 
-## 3. System Architecture
+For this reason, the model output is treated as a warning signal instead of a final decision. In the application design, a High risk label means "please verify this claim before sharing", not "this claim is certainly false".
 
-The application has four stages. The input stage receives a social-media-style claim, link/source information, account metadata, and repost metadata when available. The feature stage converts the input into numeric representations. The baseline uses TF-IDF unigrams and bigrams, plus engineered metadata such as the speaker's historical high-risk ratio. The transformer path tokenizes the claim and fine-tunes a compact BERT classifier.
+## III. Data Requirement and Preparation
 
-The learning stage outputs a probability score between 0 and 1. Scores below 0.40 are shown as Low risk, scores between 0.40 and 0.70 as Medium risk, and scores above 0.70 as High risk. The explanation stage reports interpretable warnings, such as emotional wording, unsupported claim markers, suspicious source information, fast reposting, or a speaker with a high-risk fact-checking history. In the LIAR experiment, network features are unavailable, so explanations rely mostly on text and speaker-history signals.
+A deployed version would require the claim text, link or source information, account information, repost speed, number of distinct reposting accounts, and optionally source-reliability data. These features help detect emotional wording, unsupported claims, weak sources, fast reposting, and unusual account behavior.
 
-## 4. Models
+For the reproducible experiment, we use the LIAR dataset. LIAR contains short political statements from PolitiFact with six labels: pants-fire, false, barely-true, half-true, mostly-true, and true. We convert them into a three-level risk task. The Low risk class contains true and mostly-true. The Medium risk class contains half-true and barely-true. The High risk class contains false and pants-fire. This mapping is more informative than the earlier two-class design because partly true and ambiguous claims are not forced into either the safest or riskiest group.
 
-The first fair baseline is a logistic regression classifier over sparse TF-IDF text vectors. This model is strong for short-text classification because it captures discriminative phrases and remains easy to inspect. We also train a metadata-enhanced variant that adds speaker-history and lightweight risk features.
+The experiment follows the official LIAR split. There are 10,269 training examples, 1,284 validation examples, and 1,283 test examples. The text input combines the statement, subject, and context fields. The validation split is used for transformer checkpoint selection. The test split is used only once for final reporting.
 
-The second fair model is `bert-base-uncased`, fine-tuned for binary classification on the same text-only inputs. Transformers use self-attention to model interactions between words and can capture richer semantics than TF-IDF. We train for up to five epochs on GPU and select the checkpoint with the best validation F1.
+## IV. Application Design and AI Method
 
-## 5. Results
+The proposed system has four stages. The input stage receives a post, source information, account information, and repost information when available. The feature stage transforms the input into numerical features. Text is represented by TF-IDF unigrams and bigrams for the baseline, while the transformer path tokenizes the claim with BERT-base.
 
-Under the fair text-only protocol, BERT-base slightly outperforms the text-only TF-IDF model by F1 and ROC-AUC. BERT-base reaches 0.504 accuracy, 0.464 precision, 0.948 recall, 0.623 F1, and 0.697 ROC-AUC. Text-only TF-IDF reaches 0.509 accuracy, 0.466 precision, 0.912 recall, 0.617 F1, and 0.658 ROC-AUC.
+The learning stage predicts probabilities for Low, Medium, and High risk. The displayed risk score is computed as `0.5 * prob_medium + prob_high`, so Medium risk contributes partial concern and High risk contributes full concern. For the formal LIAR experiment, predictions are selected by multiclass argmax. We report macro precision, macro recall, macro-F1, weighted-F1, and multiclass one-vs-rest macro ROC-AUC.
 
-The metadata-enhanced TF-IDF model performs best overall, with 0.704 accuracy, 0.610 precision, 0.876 recall, 0.719 F1, and 0.830 ROC-AUC. This model is not a direct fair comparison against BERT-base because it uses extra speaker-history metadata. Its result shows that contextual metadata is highly informative for this risk-assistance task.
+The explanation stage translates model signals into short user-facing reasons. Examples include emotional wording, unsupported claim markers, weak or unknown source, fast reposting, or heavy punctuation. These explanations make the system more useful than a black-box label because the user can see what should be checked.
 
-| Model | Accuracy | Precision | Recall | F1 | ROC-AUC |
-|---|---:|---:|---:|---:|---:|
-| TF-IDF text-only | 0.509 | 0.466 | 0.912 | 0.617 | 0.658 |
-| BERT-base text-only | 0.504 | 0.464 | 0.948 | 0.623 | 0.697 |
-| TF-IDF + metadata | 0.704 | 0.610 | 0.876 | 0.719 | 0.830 |
+## V. Experimental Design
 
-## 6. Analysis
+We evaluate two models. The first model is a text-only TF-IDF logistic regression classifier. It is a strong baseline for short-text classification and is easy to reproduce. The second model is BERT-base fine-tuned on the same text-only inputs. This is the fair comparison with TF-IDF because both models receive the same information.
 
-The label distribution shows that the LIAR test set is not dominated by a single class. The selected text-only models favor high recall because the validation threshold is optimized for F1 and missing a higher-risk claim is costly in the intended application.
+BERT-base is trained for up to five epochs on GPU with batch size 8, maximum sequence length 128, learning rate 2e-5, and balanced class weights. After each epoch, the model is evaluated on the validation set. The checkpoint with the best validation macro-F1 is selected; in our run, this occurs at epoch 2. We report all final metrics on the official test split.
 
-The ROC curves show that BERT-base separates text-only examples better than TF-IDF text-only, while metadata-enhanced TF-IDF is strongest when speaker-history information is allowed. BERT-base's best checkpoint occurs at epoch 2; later epochs reduce validation F1 despite lower training loss, indicating overfitting.
+## VI. Key Findings and Observations
 
-## 7. Ethical Considerations and Limitations
+The text-only comparison shows that BERT-base performs clearly better than TF-IDF on the three-class task. BERT-base reaches 0.496 accuracy, 0.495 macro precision, 0.489 macro recall, 0.491 macro-F1, 0.495 weighted-F1, and 0.670 macro ROC-AUC. TF-IDF text-only reaches 0.422 accuracy, 0.424 macro precision, 0.427 macro recall, 0.421 macro-F1, 0.421 weighted-F1, and 0.611 macro ROC-AUC. This suggests that contextual representation helps when the model must separate Low, Medium, and High risk instead of only making a two-class warning decision.
 
-The system can support critical thinking, but it should not be used as an automatic censorship tool. False positives may unfairly reduce trust in legitimate speech, while false negatives may give users false confidence. Political fact-checking datasets can encode sampling bias because they focus on particular speakers, topics, and media environments. Privacy is also important: a deployed system should minimize account and repost data collection. Finally, adversarial users may rewrite claims to avoid obvious warning signals.
+| Model | Accuracy | Macro precision | Macro recall | Macro-F1 | Weighted-F1 | Macro ROC-AUC |
+|---|---:|---:|---:|---:|---:|---:|
+| TF-IDF text-only | 0.422 | 0.424 | 0.427 | 0.421 | 0.421 | 0.611 |
+| BERT-base text-only | 0.496 | 0.495 | 0.489 | 0.491 | 0.495 | 0.670 |
 
-## 8. Conclusion
+The three-class setting is more difficult than the earlier two-class setting because ambiguous claims are kept as their own Medium risk category. The confusion matrices show that Medium risk is the hardest class to separate, which is expected because half-true and barely-true statements often contain both accurate and misleading elements. For a warning assistant, this behavior is useful: Medium risk gives the interface a way to ask for caution without treating every uncertain claim as High risk.
 
-We built a reproducible misinformation risk assistant using LIAR. Under a fair text-only comparison, BERT-base slightly outperforms TF-IDF logistic regression, while the metadata-enhanced TF-IDF model remains strongest overall because it uses additional speaker-history information. The project demonstrates that an effective AI application requires careful task framing, data preparation, feature access, explanation, and ethical boundaries. Future work should test multilingual claims, source-reliability databases, and real repost-network features.
+## VII. Discussion and Reflection
+
+This project shows that the hardest part of an AI application is not only choosing a model. The task framing, data access, evaluation protocol, and ethical boundary are equally important. If the system is described as a truth detector, the same model could be misleading or harmful. If it is described as a risk assistant, the output becomes a useful prompt for careful checking.
+
+There are several limitations. LIAR focuses on political fact-checking in the United States, so the model may not generalize to health, finance, entertainment, or multilingual claims. In addition, fact-checking datasets can reflect sampling bias because fact-checkers choose which claims to investigate.
+
+Future work should test multilingual social media posts, add source-reliability databases, and use real repost-network features. The system should also be evaluated with human users to see whether the warning reduces careless sharing without causing excessive distrust.
+
+## VIII. Summary
+
+We built a reproducible misinformation risk assistant and tested it on the LIAR benchmark. The final version uses a three-level LIAR mapping: Low risk for true and mostly-true, Medium risk for half-true and barely-true, and High risk for false and pants-fire. Under a fair text-only protocol, BERT-base outperforms TF-IDF logistic regression. Overall, the project demonstrates how AI can support user judgment when the application is carefully framed, transparently evaluated, and ethically limited.
 
 ## References
 

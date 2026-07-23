@@ -33,13 +33,14 @@ Generated outputs, downloaded datasets, model caches, and render scratch directo
 
 The repository includes two reproducible model paths:
 
-- `run_demo.py`: TF-IDF text features plus logistic regression, with additional metadata features when available.
-- `run_transformer_demo.py`: a compact BERT-style transformer fine-tuning experiment for the same binary risk task.
+- `run_demo.py`: TF-IDF text features plus logistic regression for quick local demos.
+- `run_fair_experiment.py`: the final fair comparison between text-only TF-IDF logistic regression and text-only BERT-base fine-tuning.
 
-The LIAR labels are mapped into a binary risk setting:
+The LIAR labels are mapped into a three-level risk setting:
 
-- Higher risk: `false`, `barely-true`, `pants-fire`
-- Lower risk: `half-true`, `mostly-true`, `true`
+- Low risk: `true`, `mostly-true`
+- Medium risk: `half-true`, `barely-true`
+- High risk: `false`, `pants-fire`
 
 ## Installation
 
@@ -97,11 +98,10 @@ Transformer outputs are written to `transformer_outputs/`. This script is kept f
 
 ## Fair LIAR Experiment
 
-For a fair model comparison, use the official LIAR train, validation, and test splits with the same binary labels and the same feature access. The fair runner trains:
+For a fair model comparison, use the official LIAR train, validation, and test splits with the same three-level labels and the same text-only feature access. The fair runner trains:
 
 - `tfidf_text_only`: TF-IDF plus logistic regression using only claim text.
 - `transformer_text_only`: transformer fine-tuning using only claim text.
-- `tfidf_metadata_enhanced`: TF-IDF plus logistic regression with speaker-history metadata, reported separately because it uses extra information.
 
 Quick baseline-only check:
 
@@ -121,7 +121,7 @@ If `--device cuda` fails, verify that the current Python environment has a CUDA-
 python -c "import torch; print(torch.__version__); print(torch.cuda.is_available()); print(torch.version.cuda)"
 ```
 
-Outputs are written to `fair_outputs/`, including `metrics.json`, `summary.csv`, per-model prediction files, and `transformer_training_log.csv`. For the fair text-only comparison, both TF-IDF and transformer train on the official LIAR training split only, tune thresholds on the official validation split, and report once on the official test split. The metadata-enhanced model uses the same rows but has extra speaker-history features, so it should be reported separately rather than treated as a direct model-vs-model comparison.
+Outputs are written to `fair_outputs/`, including `metrics.json`, `summary.csv`, per-model prediction files, and `transformer_training_log.csv`. For the fair text-only comparison, both TF-IDF and transformer train on the official LIAR training split only, use the validation split for model selection, and report once on the official test split.
 
 The transformer runner treats `--epochs` as a training budget. After every epoch, it evaluates the validation split and keeps the checkpoint with the best validation F1 by default.
 

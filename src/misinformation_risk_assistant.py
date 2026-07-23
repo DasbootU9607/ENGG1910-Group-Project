@@ -137,19 +137,16 @@ class RiskAssistant:
         classifier = LogisticRegression(max_iter=1000, class_weight="balanced", random_state=42)
         classifier.fit(x_train, train_df["label"])
 
-        prob = classifier.predict_proba(x_test)[:, 1]
-        pred = (prob >= 0.5).astype(int)
-        tn, fp, fn, tp = confusion_matrix(test_df["label"], pred, labels=[0, 1]).ravel()
+        probabilities = classifier.predict_proba(x_test)
+        pred = classifier.classes_[np.argmax(probabilities, axis=1)]
         metrics = {
             "accuracy": float(accuracy_score(test_df["label"], pred)),
-            "precision": float(precision_score(test_df["label"], pred, zero_division=0)),
-            "recall": float(recall_score(test_df["label"], pred, zero_division=0)),
-            "f1": float(f1_score(test_df["label"], pred, zero_division=0)),
-            "roc_auc": float(roc_auc_score(test_df["label"], prob)),
-            "true_negative": int(tn),
-            "false_positive": int(fp),
-            "false_negative": int(fn),
-            "true_positive": int(tp),
+            "precision_macro": float(precision_score(test_df["label"], pred, average="macro", zero_division=0)),
+            "recall_macro": float(recall_score(test_df["label"], pred, average="macro", zero_division=0)),
+            "f1_macro": float(f1_score(test_df["label"], pred, average="macro", zero_division=0)),
+            "f1_weighted": float(f1_score(test_df["label"], pred, average="weighted", zero_division=0)),
+            "roc_auc_ovr_macro": float(roc_auc_score(test_df["label"], probabilities, multi_class="ovr", average="macro")),
+            "confusion_matrix": confusion_matrix(test_df["label"], pred, labels=[0, 1, 2]).tolist(),
             "test_size": int(len(test_df)),
             "train_size": int(len(train_df)),
             "feature_set": "text_plus_metadata" if include_metadata else "text_only",
@@ -157,8 +154,15 @@ class RiskAssistant:
 
         assistant = cls(vectorizer, classifier, numeric_columns, include_metadata)
         test_results = test_df.copy()
-        test_results["risk_score"] = prob
+        for class_label, column_name in [(0, "prob_low"), (1, "prob_medium"), (2, "prob_high")]:
+            if class_label in classifier.classes_:
+                class_index = int(np.where(classifier.classes_ == class_label)[0][0])
+                test_results[column_name] = probabilities[:, class_index]
+            else:
+                test_results[column_name] = 0.0
+        test_results["risk_score"] = test_results["prob_medium"] * 0.5 + test_results["prob_high"]
         test_results["prediction"] = pred
+        test_results["predicted_risk_level"] = [risk_level_from_label(label) for label in pred]
         return assistant, metrics, test_results
 
     def predict_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -168,12 +172,20 @@ class RiskAssistant:
             x = sparse.hstack([text_features, sparse.csr_matrix(numeric_features.values)])
         else:
             x = text_features
-        scores = self.classifier.predict_proba(x)[:, 1]
+        probabilities = self.classifier.predict_proba(x)
+        predictions = self.classifier.classes_[np.argmax(probabilities, axis=1)]
 
         out = df.copy()
-        out["risk_score"] = scores
-        out["risk_level"] = [risk_level(score) for score in scores]
-        out["explanation"] = [explain_row(row, score) for (_, row), score in zip(df.iterrows(), scores)]
+        for class_label, column_name in [(0, "prob_low"), (1, "prob_medium"), (2, "prob_high")]:
+            if class_label in self.classifier.classes_:
+                class_index = int(np.where(self.classifier.classes_ == class_label)[0][0])
+                out[column_name] = probabilities[:, class_index]
+            else:
+                out[column_name] = 0.0
+        out["risk_score"] = out["prob_medium"] * 0.5 + out["prob_high"]
+        out["prediction"] = predictions
+        out["risk_level"] = [risk_level_from_label(label) for label in predictions]
+        out["explanation"] = [explain_row(row, score, label) for (_, row), score, label in zip(df.iterrows(), out["risk_score"], predictions)]
         return out
 
     def predict_single(
@@ -293,14 +305,18 @@ def source_risk_score(domain: str) -> float:
 
 
 def risk_level(score: float) -> str:
-    if score >= 0.70:
+    if score >= 0.67:
         return "High"
-    if score >= 0.40:
+    if score >= 0.34:
         return "Medium"
     return "Low"
 
 
-def explain_row(row: pd.Series, score: float) -> str:
+def risk_level_from_label(label: int) -> str:
+    return {0: "Low", 1: "Medium", 2: "High"}.get(int(label), risk_level(float(label)))
+
+
+def explain_row(row: pd.Series, score: float, label: int | None = None) -> str:
     text = str(row.get("text", ""))
     domain = str(row.get("source_domain", "")).lower().strip()
     reasons: list[str] = []
@@ -341,7 +357,8 @@ def explain_row(row: pd.Series, score: float) -> str:
     if not reasons:
         reasons.append("no strong warning signal in the available metadata")
 
-    return f"{risk_level(score)} risk ({score:.2f}). " + "; ".join(reasons)
+    level = risk_level_from_label(label) if label is not None else risk_level(score)
+    return f"{level} risk ({score:.2f}). " + "; ".join(reasons)
 
 
 def matching_terms(text: str, terms: Iterable[str]) -> list[str]:
@@ -393,7 +410,14 @@ LIAR_COLUMNS = [
     "context",
 ]
 
-HIGH_RISK_LIAR_LABELS = {"false", "barely-true", "pants-fire"}
+LIAR_RISK_LABELS = {
+    "mostly-true": 0,
+    "true": 0,
+    "barely-true": 1,
+    "half-true": 1,
+    "false": 2,
+    "pants-fire": 2,
+}
 
 
 def read_liar_split(zip_path: Path, split: str) -> pd.DataFrame:
@@ -429,7 +453,8 @@ def normalize_liar_dataframe(df: pd.DataFrame, split: str) -> pd.DataFrame:
     work["repost_count_1h"] = 0
     work["distinct_accounts_1h"] = 1
     work["has_link"] = 0
-    work["label"] = work["original_label"].isin(HIGH_RISK_LIAR_LABELS).astype(int)
+    work["label"] = work["original_label"].map(LIAR_RISK_LABELS).astype(int)
+    work["risk_level"] = work["label"].map({0: "Low", 1: "Medium", 2: "High"})
     return work
 
 

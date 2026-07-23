@@ -43,10 +43,9 @@
         <p>
           This project frames misinformation detection as user-facing risk assistance rather than final
           truth judgment. We evaluate on LIAR, a public benchmark of 12.8K political claims labelled by
-          fact-checkers, and map six truthfulness labels into a binary risk task. Under a fair text-only
-          protocol, BERT-base reaches 0.623 F1 and 0.697 ROC-AUC, slightly ahead of a text-only TF-IDF
-          logistic regression baseline. A metadata-enhanced TF-IDF model reaches 0.719 F1 and 0.830
-          ROC-AUC when speaker-history information is allowed.
+          fact-checkers, and map six truthfulness labels into a three-level risk task. Under a fair
+          text-only protocol, BERT-base reaches 0.491 macro-F1 and 0.670 macro ROC-AUC, outperforming
+          a text-only TF-IDF logistic regression baseline.
         </p>
       </section>
 
@@ -56,17 +55,17 @@
           <div class="stage">
             <span>1</span>
             <h3>Input</h3>
-            <p>Claim text, subject, context, speaker metadata, and optional social-media signals.</p>
+            <p>Claim text with subject and context fields from the official LIAR splits.</p>
           </div>
           <div class="stage">
             <span>2</span>
             <h3>Features</h3>
-            <p>TF-IDF n-grams, speaker history, warning terms, source and repost indicators.</p>
+            <p>TF-IDF n-grams for the baseline and BERT tokenization for the transformer model.</p>
           </div>
           <div class="stage">
             <span>3</span>
             <h3>Models</h3>
-            <p>Text-only TF-IDF, text-only BERT-base, and a separate metadata-enhanced model.</p>
+            <p>Text-only TF-IDF logistic regression and text-only BERT-base fine-tuning.</p>
           </div>
           <div class="stage">
             <span>4</span>
@@ -80,16 +79,16 @@
         <h2>Results</h2>
         <div class="metrics">
           <div>
-            <strong>0.697</strong>
-            <span>BERT-base ROC-AUC</span>
+            <strong>0.670</strong>
+            <span>BERT-base Macro AUC</span>
           </div>
           <div>
-            <strong>0.623</strong>
-            <span>BERT-base F1</span>
+            <strong>0.491</strong>
+            <span>BERT-base Macro-F1</span>
           </div>
           <div>
-            <strong>0.830</strong>
-            <span>Metadata AUC</span>
+            <strong>0.421</strong>
+            <span>TF-IDF Macro-F1</span>
           </div>
           <div>
             <strong>1,283</strong>
@@ -99,11 +98,11 @@
         <div class="figure-grid">
           <figure>
             <img src="assets/model_comparison.png" alt="Bar chart comparing baseline and transformer metrics" />
-            <figcaption>BERT-base slightly outperforms TF-IDF in the fair text-only comparison; metadata remains strongest overall.</figcaption>
+            <figcaption>BERT-base outperforms TF-IDF in the fair text-only three-class comparison.</figcaption>
           </figure>
           <figure>
             <img src="assets/roc_curves.png" alt="ROC curves for baseline and transformer models" />
-            <figcaption>The ROC curves separate fair text-only comparison from the metadata-enhanced model.</figcaption>
+            <figcaption>The ROC curves compare only the text-only TF-IDF baseline and BERT-base model.</figcaption>
           </figure>
         </div>
       </section>
@@ -116,21 +115,21 @@
             <figcaption>Original LIAR truthfulness labels are reasonably distributed across the test set.</figcaption>
           </figure>
           <figure>
-            <img src="assets/risk_distribution.png" alt="Predicted lower-risk and higher-risk distribution" />
-            <figcaption>The selected BERT-base threshold favors high recall for higher-risk claims.</figcaption>
+            <img src="assets/risk_distribution.png" alt="Predicted Low, Medium, and High risk distribution" />
+            <figcaption>The BERT-base model outputs a three-level Low, Medium, and High risk distribution.</figcaption>
           </figure>
           <figure>
             <img src="assets/baseline_confusion_matrix.png" alt="Baseline confusion matrix" />
-            <figcaption>The text-only TF-IDF model identifies 507 higher-risk claims while missing 49.</figcaption>
+            <figcaption>The text-only TF-IDF confusion matrix shows Medium risk is the hardest class to separate.</figcaption>
           </figure>
           <figure>
             <img src="assets/transformer_confusion_matrix.png" alt="Transformer confusion matrix" />
-            <figcaption>BERT-base identifies 527 higher-risk claims while missing 29.</figcaption>
+            <figcaption>The BERT-base confusion matrix shows stronger overall three-class separation than TF-IDF.</figcaption>
           </figure>
         </div>
         <figure class="wide-figure">
           <img src="assets/score_distribution.png" alt="Risk score distributions for both models" />
-          <figcaption>Risk-score distributions show BERT-base ahead of text-only TF-IDF, with metadata providing the strongest separation.</figcaption>
+          <figcaption>Risk-score distributions compare the two reported text-only models.</figcaption>
         </figure>
       </section>
 

@@ -17,26 +17,25 @@ FIGURE_DIR = PAPER_DIR / "figures"
 
 
 METRICS_TABLE = [
-    ["Model", "Acc.", "Prec.", "Rec.", "F1", "AUC"],
-    ["TF-IDF text-only", "0.509", "0.466", "0.912", "0.617", "0.658"],
-    ["BERT-base text-only", "0.504", "0.464", "0.948", "0.623", "0.697"],
-    ["TF-IDF + metadata", "0.704", "0.610", "0.876", "0.719", "0.830"],
+    ["Model", "Acc.", "Macro Prec.", "Macro Rec.", "Macro-F1", "Weighted-F1", "Macro AUC"],
+    ["TF-IDF text-only", "0.422", "0.424", "0.427", "0.421", "0.421", "0.611"],
+    ["BERT-base text-only", "0.496", "0.495", "0.489", "0.491", "0.495", "0.670"],
 ]
 
 
 FIGURES = {
-    "## 2. Task and Data": [
+    "## III. Data Requirement and Preparation": [
         ("label_distribution.png", "Figure 1: Original LIAR label distribution on the official test split."),
     ],
-    "## 5. Results": [
-        ("model_comparison.png", "Figure 2: Model comparison across five classification metrics."),
-        ("roc_curves.png", "Figure 3: ROC curves for the fair text-only models and metadata-enhanced model."),
+    "## VI. Key Findings and Observations": [
+        ("model_comparison.png", "Figure 2: Model comparison across multiclass classification metrics."),
+        ("roc_curves.png", "Figure 3: One-vs-rest ROC curves for the fair text-only models."),
     ],
-    "## 6. Analysis": [
-        ("risk_distribution.png", "Figure 4: Predicted binary risk distribution from BERT-base."),
-        ("baseline_confusion_matrix.png", "Figure 5: Confusion matrix for TF-IDF text-only logistic regression."),
-        ("transformer_confusion_matrix.png", "Figure 6: Confusion matrix for BERT-base text-only fine-tuning."),
-        ("score_distribution.png", "Figure 7: Distribution of model risk scores."),
+    "## VII. Discussion and Reflection": [
+        ("risk_distribution.png", "Figure 4: Predicted three-level risk distribution from BERT-base."),
+        ("baseline_confusion_matrix.png", "Figure 5: Three-class confusion matrix for TF-IDF text-only logistic regression."),
+        ("transformer_confusion_matrix.png", "Figure 6: Three-class confusion matrix for BERT-base text-only fine-tuning."),
+        ("score_distribution.png", "Figure 7: Distribution of continuous risk scores computed from Medium and High probabilities."),
     ],
 }
 
@@ -117,7 +116,7 @@ def add_figure(story: list, filename: str, caption: str, style_map: dict[str, Pa
 
 
 def add_metrics_table(story: list, style_map: dict[str, ParagraphStyle]) -> None:
-    table = Table(METRICS_TABLE, colWidths=[2.05 * inch, 0.62 * inch, 0.62 * inch, 0.62 * inch, 0.62 * inch, 0.62 * inch])
+    table = Table(METRICS_TABLE, colWidths=[1.55 * inch, 0.51 * inch, 0.72 * inch, 0.72 * inch, 0.67 * inch, 0.76 * inch, 0.67 * inch])
     table.setStyle(
         TableStyle(
             [
@@ -134,7 +133,7 @@ def add_metrics_table(story: list, style_map: dict[str, ParagraphStyle]) -> None
         )
     )
     story.append(table)
-    story.append(Paragraph("Table 1: Test-set comparison under the fair LIAR protocol.", style_map["caption"]))
+    story.append(Paragraph("Table 1: Test-set comparison under the fair three-class LIAR protocol.", style_map["caption"]))
 
 
 def build_pdf() -> None:

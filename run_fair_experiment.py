@@ -61,13 +61,13 @@ def parse_args() -> argparse.Namespace:
         help="Transformer checkpoint for the fair text-only model.",
     )
     parser.add_argument("--max-train", type=int, default=0, help="Maximum transformer training rows; 0 uses full train.")
-    parser.add_argument("--max-valid", type=int, default=0, help="Maximum validation rows for threshold tuning; 0 uses full valid.")
+    parser.add_argument("--max-valid", type=int, default=0, help="Maximum validation rows for checkpoint selection; 0 uses full valid.")
     parser.add_argument("--max-test", type=int, default=0, help="Maximum test rows; 0 uses full test.")
     parser.add_argument("--epochs", type=int, default=5, help="Maximum transformer training epochs.")
     parser.add_argument(
         "--selection-metric",
-        choices=["f1", "roc_auc"],
-        default="f1",
+        choices=["f1_macro", "f1_weighted", "roc_auc_ovr_macro"],
+        default="f1_macro",
         help="Validation metric used to select the transformer checkpoint.",
     )
     parser.add_argument("--batch-size", type=int, default=8, help="Transformer batch size.")
@@ -105,33 +105,33 @@ def texts(df: pd.DataFrame) -> list[str]:
     return df["text"].fillna("").astype(str).tolist()
 
 
-def metrics_from_scores(y_true: np.ndarray, scores: np.ndarray, threshold: float) -> dict[str, float]:
-    predictions = (scores >= threshold).astype(int)
-    tn, fp, fn, tp = confusion_matrix(y_true, predictions, labels=[0, 1]).ravel()
+CLASS_LABELS = [0, 1, 2]
+RISK_LEVELS = {0: "low", 1: "medium", 2: "high"}
+
+
+def metrics_from_probabilities(y_true: np.ndarray, probabilities: np.ndarray) -> dict[str, float]:
+    predictions = np.argmax(probabilities, axis=1)
     return {
         "accuracy": float(accuracy_score(y_true, predictions)),
-        "precision": float(precision_score(y_true, predictions, zero_division=0)),
-        "recall": float(recall_score(y_true, predictions, zero_division=0)),
-        "f1": float(f1_score(y_true, predictions, zero_division=0)),
-        "roc_auc": float(roc_auc_score(y_true, scores)),
-        "threshold": float(threshold),
-        "true_negative": int(tn),
-        "false_positive": int(fp),
-        "false_negative": int(fn),
-        "true_positive": int(tp),
+        "precision_macro": float(precision_score(y_true, predictions, average="macro", zero_division=0)),
+        "recall_macro": float(recall_score(y_true, predictions, average="macro", zero_division=0)),
+        "f1_macro": float(f1_score(y_true, predictions, average="macro", zero_division=0)),
+        "f1_weighted": float(f1_score(y_true, predictions, average="weighted", zero_division=0)),
+        "roc_auc_ovr_macro": float(roc_auc_score(y_true, probabilities, multi_class="ovr", average="macro")),
+        "confusion_matrix": confusion_matrix(y_true, predictions, labels=CLASS_LABELS).tolist(),
         "test_size": int(len(y_true)),
     }
 
 
-def choose_threshold(y_true: np.ndarray, scores: np.ndarray) -> float:
-    best_threshold = 0.5
-    best_f1 = -1.0
-    for threshold in np.linspace(0.05, 0.95, 181):
-        score = f1_score(y_true, (scores >= threshold).astype(int), zero_division=0)
-        if score > best_f1:
-            best_f1 = score
-            best_threshold = float(threshold)
-    return best_threshold
+def add_probability_columns(df: pd.DataFrame, probabilities: np.ndarray) -> pd.DataFrame:
+    out = df.copy()
+    out["prob_low"] = probabilities[:, 0]
+    out["prob_medium"] = probabilities[:, 1]
+    out["prob_high"] = probabilities[:, 2]
+    out["risk_score"] = out["prob_medium"] * 0.5 + out["prob_high"]
+    out["prediction"] = np.argmax(probabilities, axis=1)
+    out["predicted_risk_level"] = out["prediction"].map({0: "Low", 1: "Medium", 2: "High"})
+    return out
 
 
 def run_logistic_model(
@@ -143,16 +143,11 @@ def run_logistic_model(
     output_dir: Path,
 ) -> dict[str, float]:
     assistant, _, _ = RiskAssistant.train_with_split(train_df, valid_df, include_metadata=include_metadata)
-    valid_predictions = assistant.predict_dataframe(valid_df)
     test_predictions = assistant.predict_dataframe(test_df)
-    threshold = choose_threshold(
-        valid_predictions["label"].astype(int).to_numpy(),
-        valid_predictions["risk_score"].to_numpy(),
-    )
-    metrics = metrics_from_scores(
+    probabilities = test_predictions[["prob_low", "prob_medium", "prob_high"]].to_numpy()
+    metrics = metrics_from_probabilities(
         test_predictions["label"].astype(int).to_numpy(),
-        test_predictions["risk_score"].to_numpy(),
-        threshold,
+        probabilities,
     )
     metrics.update(
         {
@@ -162,8 +157,6 @@ def run_logistic_model(
             "valid_size": int(len(valid_df)),
         }
     )
-    test_predictions["prediction_threshold"] = threshold
-    test_predictions["prediction"] = (test_predictions["risk_score"] >= threshold).astype(int)
     test_predictions.to_csv(output_dir / f"{name}_predictions.csv", index=False, encoding="utf-8-sig")
     return metrics
 
@@ -182,8 +175,8 @@ def resolve_device(requested: str) -> torch.device:
 
 
 def class_weights(labels: pd.Series, device: torch.device) -> torch.Tensor:
-    counts = labels.astype(int).value_counts().reindex([0, 1]).fillna(1).to_numpy(dtype=np.float32)
-    weights = counts.sum() / (2.0 * counts)
+    counts = labels.astype(int).value_counts().reindex(CLASS_LABELS).fillna(1).to_numpy(dtype=np.float32)
+    weights = counts.sum() / (len(CLASS_LABELS) * counts)
     return torch.tensor(weights, dtype=torch.float32, device=device)
 
 
@@ -210,18 +203,18 @@ def train_transformer_epoch(
 
 
 @torch.no_grad()
-def transformer_scores(model: torch.nn.Module, loader: DataLoader, device: torch.device) -> tuple[np.ndarray, np.ndarray]:
+def transformer_probabilities(model: torch.nn.Module, loader: DataLoader, device: torch.device) -> tuple[np.ndarray, np.ndarray]:
     model.eval()
     labels: list[int] = []
-    scores: list[float] = []
+    probabilities: list[list[float]] = []
     for batch in loader:
         input_ids = batch["input_ids"].to(device)
         attention_mask = batch["attention_mask"].to(device)
         outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-        probabilities = torch.softmax(outputs.logits, dim=1)[:, 1]
+        batch_probabilities = torch.softmax(outputs.logits, dim=1)
         labels.extend(batch["labels"].numpy().tolist())
-        scores.extend(probabilities.cpu().numpy().tolist())
-    return np.array(labels), np.array(scores)
+        probabilities.extend(batch_probabilities.cpu().numpy().tolist())
+    return np.array(labels), np.array(probabilities)
 
 
 def run_transformer_model(
@@ -233,7 +226,7 @@ def run_transformer_model(
 ) -> dict[str, float]:
     device = resolve_device(args.device)
     tokenizer = AutoTokenizer.from_pretrained(args.model)
-    model = AutoModelForSequenceClassification.from_pretrained(args.model, num_labels=2)
+    model = AutoModelForSequenceClassification.from_pretrained(args.model, num_labels=3)
     model.to(device)
 
     train_dataset = ClaimDataset(texts(train_df), train_df["label"].astype(int).tolist(), tokenizer, args.max_length)
@@ -253,20 +246,19 @@ def run_transformer_model(
     best_score = -1.0
     for epoch in range(args.epochs):
         loss = train_transformer_epoch(model, train_loader, optimizer, loss_fn, device)
-        valid_labels, valid_scores = transformer_scores(model, valid_loader, device)
-        threshold = choose_threshold(valid_labels, valid_scores)
-        valid_metrics = metrics_from_scores(valid_labels, valid_scores, threshold)
+        valid_labels, valid_probabilities = transformer_probabilities(model, valid_loader, device)
+        valid_metrics = metrics_from_probabilities(valid_labels, valid_probabilities)
         selected_score = valid_metrics[args.selection_metric]
         training_log.append(
             {
                 "epoch": epoch + 1,
                 "train_loss": loss,
                 "valid_accuracy": valid_metrics["accuracy"],
-                "valid_precision": valid_metrics["precision"],
-                "valid_recall": valid_metrics["recall"],
-                "valid_f1": valid_metrics["f1"],
-                "valid_roc_auc": valid_metrics["roc_auc"],
-                "valid_threshold": valid_metrics["threshold"],
+                "valid_precision_macro": valid_metrics["precision_macro"],
+                "valid_recall_macro": valid_metrics["recall_macro"],
+                "valid_f1_macro": valid_metrics["f1_macro"],
+                "valid_f1_weighted": valid_metrics["f1_weighted"],
+                "valid_roc_auc_ovr_macro": valid_metrics["roc_auc_ovr_macro"],
             }
         )
         if selected_score > best_score:
@@ -276,17 +268,16 @@ def run_transformer_model(
             best_state = copy.deepcopy({key: value.detach().cpu() for key, value in model.state_dict().items()})
         print(
             f"Transformer epoch {epoch + 1}/{args.epochs} | "
-            f"loss={loss:.4f} | valid_f1={valid_metrics['f1']:.4f} | "
-            f"valid_auc={valid_metrics['roc_auc']:.4f}"
+            f"loss={loss:.4f} | valid_macro_f1={valid_metrics['f1_macro']:.4f} | "
+            f"valid_auc={valid_metrics['roc_auc_ovr_macro']:.4f}"
         )
 
     model.load_state_dict(best_state)
     model.to(device)
     if best_valid_metrics is None:
         raise RuntimeError("Transformer training did not produce validation metrics.")
-    threshold = best_valid_metrics["threshold"]
-    test_labels, test_scores = transformer_scores(model, test_loader, device)
-    metrics = metrics_from_scores(test_labels, test_scores, threshold)
+    test_labels, test_probabilities = transformer_probabilities(model, test_loader, device)
+    metrics = metrics_from_probabilities(test_labels, test_probabilities)
     metrics.update(
         {
             "model": args.model,
@@ -306,10 +297,15 @@ def run_transformer_model(
         }
     )
 
-    predictions = test_df.copy()
-    predictions["transformer_risk_score"] = test_scores
-    predictions["prediction_threshold"] = threshold
-    predictions["prediction"] = (test_scores >= threshold).astype(int)
+    predictions = add_probability_columns(test_df, test_probabilities)
+    predictions = predictions.rename(
+        columns={
+            "prob_low": "transformer_prob_low",
+            "prob_medium": "transformer_prob_medium",
+            "prob_high": "transformer_prob_high",
+            "risk_score": "transformer_risk_score",
+        }
+    )
     predictions.to_csv(output_dir / "transformer_text_only_predictions.csv", index=False, encoding="utf-8-sig")
     pd.DataFrame(training_log).to_csv(output_dir / "transformer_training_log.csv", index=False, encoding="utf-8-sig")
     return metrics
@@ -336,15 +332,7 @@ def main() -> None:
             test_df,
             include_metadata=False,
             output_dir=args.output,
-        ),
-        "tfidf_metadata_enhanced": run_logistic_model(
-            "tfidf_metadata_enhanced",
-            train_df,
-            valid_df,
-            test_df,
-            include_metadata=True,
-            output_dir=args.output,
-        ),
+        )
     }
 
     if not args.skip_transformer:
@@ -359,11 +347,11 @@ def main() -> None:
     summary = pd.DataFrame(results).T
     metric_columns = [
         "accuracy",
-        "precision",
-        "recall",
-        "f1",
-        "roc_auc",
-        "threshold",
+        "precision_macro",
+        "recall_macro",
+        "f1_macro",
+        "f1_weighted",
+        "roc_auc_ovr_macro",
         "train_size",
         "valid_size",
         "best_epoch",
